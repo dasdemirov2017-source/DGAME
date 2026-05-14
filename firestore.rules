@@ -1,0 +1,115 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Default deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isSuperUser() {
+      return isSignedIn() && request.auth.token.email == 'dasdemirov2017@gmail.com';
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isValidUser(data) {
+      return data.uid == request.auth.uid &&
+             data.email is string &&
+             data.email.size() < 256;
+    }
+
+    match /users/{userId} {
+      allow get: if isSignedIn();
+      allow list: if isSignedIn();
+      allow create: if isOwner(userId) && isValidUser(request.resource.data);
+      allow update: if isOwner(userId) || isSuperUser() || (
+        // Allow others to send gifts (append to receivedGifts) and give coins/XP
+        isSignedIn() && 
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['receivedGifts', 'coins', 'xp', 'level'])
+      );
+    }
+
+    match /leaderboard/{scoreId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() && (request.resource.data.userId == request.auth.uid || isSuperUser());
+    }
+
+    match /rooms/{roomId} {
+      function isRoomOwner() {
+        return isSignedIn() && resource.data.ownerId == request.auth.uid;
+      }
+
+      function isRoomModerator() {
+        return isSignedIn() && (resource.data.ownerId == request.auth.uid || (resource.data.admins != null && request.auth.uid in resource.data.admins));
+      }
+
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() && (request.resource.data.ownerId == request.auth.uid || isSuperUser());
+      allow update: if isRoomModerator() || isSuperUser() || (
+        isSignedIn() && (
+          // Anyone can update room XP/seats if valid
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['xp', 'level', 'seats'])
+        )
+      );
+      allow delete: if isRoomOwner() || isSuperUser();
+
+      match /messages/{messageId} {
+        function canReadMessages() {
+          let path = /databases/$(database)/documents/rooms/$(roomId);
+          let room = exists(path) ? get(path).data : null;
+          let isKicked = room != null && room.get('kickedUsers', []) != null && request.auth.uid in room.get('kickedUsers', []);
+          return !isKicked || isSuperUser();
+        }
+
+        allow read: if isSignedIn() && canReadMessages();
+        allow create: if isSignedIn() && 
+                      (isSuperUser() || (request.resource.data.senderId == request.auth.uid && canReadMessages()));
+      }
+
+      match /signaling/{memberId} {
+        function getRoomData() {
+          let path = /databases/$(database)/documents/rooms/$(roomId);
+          return exists(path) ? get(path).data : null;
+        }
+        function isKicked() {
+          let data = getRoomData();
+          return data != null && data.get('kickedUsers', []) != null && request.auth.uid in data.get('kickedUsers', []);
+        }
+        function isRoomModerator() {
+          let room = getRoomData();
+          return room != null && (request.auth.uid == room.ownerId || (room.admins != null && request.auth.uid in room.admins));
+        }
+
+        allow read: if isSignedIn() && (isSuperUser() || !isKicked());
+        allow create, update: if isSignedIn() && (isSuperUser() || (memberId == request.auth.uid && !isKicked()));
+        allow delete: if isSignedIn() && (isSuperUser() || memberId == request.auth.uid || isRoomModerator());
+      }
+    }
+
+    match /follows/{followId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() && (
+                     (request.resource.data.followerId == request.auth.uid &&
+                      followId == request.resource.data.followerId + "_" + request.resource.data.followedId) ||
+                     isSuperUser()
+                   );
+      allow delete: if isSignedIn() && (resource.data.followerId == request.auth.uid || isSuperUser());
+    }
+
+    match /discover_posts/{postId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() && 
+                    request.resource.data.userId == request.auth.uid &&
+                    (request.resource.data.get('isPinned', false) == false || isSuperUser());
+      allow update, delete: if isSignedIn() && 
+                           (resource.data.userId == request.auth.uid || isSuperUser());
+    }
+  }
+}

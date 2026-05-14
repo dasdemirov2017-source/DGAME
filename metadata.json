@@ -1,0 +1,6 @@
+{
+  "name": "Mənim Oyunum",
+  "description": "A mobile-responsive game application with individual user registration and login, powered by Firebase.",
+  "requestFramePermissions": ["microphone"],
+  "majorCapabilities": []
+}

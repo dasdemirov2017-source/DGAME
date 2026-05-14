@@ -1,0 +1,136 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User profile and game progress",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "description": "Firebase Auth UID" },
+        "displayName": { "type": "string" },
+        "email": { "type": "string" },
+        "photoURL": { "type": "string" },
+        "region": { "type": "string" },
+        "coins": { "type": "number", "description": "Virtual currency balance" },
+        "highScore": { "type": "number" },
+        "xp": { "type": "number", "default": 0 },
+        "level": { "type": "number", "default": 1 },
+        "receivedGifts": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "giftId": { "type": "string" },
+              "senderId": { "type": "string" },
+              "senderName": { "type": "string" },
+              "timestamp": { "type": "string", "format": "date-time" }
+            }
+          }
+        },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "email"]
+    },
+    "GameEvent": {
+      "title": "GameEvent",
+      "description": "Historical high scores",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "score": { "type": "number" },
+        "timestamp": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "score", "timestamp"]
+    },
+    "Room": {
+      "title": "Room",
+      "description": "Chat room created by users",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "ownerId": { "type": "string" },
+        "ownerName": { "type": "string" },
+        "ownerPhoto": { "type": "string" },
+        "roomPhoto": { "type": "string" },
+        "backgroundId": { "type": "string" },
+        "xp": { "type": "number", "default": 0 },
+        "level": { "type": "number", "default": 1 },
+        "admins": { 
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "kickedUsers": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "seats": {
+          "type": "object",
+          "description": "Configuration and state for the 10 seats"
+        },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["name", "ownerId"]
+    },
+    "Message": {
+      "title": "Message",
+      "description": "A chat message in a room",
+      "type": "object",
+      "properties": {
+        "senderId": { "type": "string" },
+        "senderName": { "type": "string" },
+        "senderPhoto": { "type": "string" },
+        "text": { "type": "string" },
+        "imageUrl": { "type": "string" },
+        "type": { "type": "string", "enum": ["text", "image", "system"] },
+        "timestamp": { "type": "string", "format": "date-time" }
+      },
+      "required": ["senderId", "senderName", "type"]
+    },
+    "DiscoveryPost": {
+      "title": "DiscoveryPost",
+      "description": "A post in the discovery feed",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "userName": { "type": "string" },
+        "userPhoto": { "type": "string" },
+        "text": { "type": "string" },
+        "mediaUrl": { "type": "string" },
+        "mediaType": { "type": "string", "enum": ["image", "video"] },
+        "timestamp": { "type": "string", "format": "date-time" },
+        "isPinned": { "type": "boolean", "default": false }
+      },
+      "required": ["userId", "userName", "timestamp"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "Primary user profiles"
+    },
+    "/leaderboard/{scoreId}": {
+      "schema": "GameEvent",
+      "description": "Public leaderboard entries"
+    },
+    "/rooms/{roomId}": {
+      "schema": "Room",
+      "description": "Global chat rooms"
+    },
+    "/rooms/{roomId}/messages/{messageId}": {
+      "schema": "Message",
+      "description": "Chat messages in a room"
+    },
+    "/rooms/{roomId}/signaling/{memberId}": {
+      "schema": "object",
+      "description": "WebRTC signaling data (offer, answer, candidates)"
+    },
+    "/follows/{followId}": {
+      "schema": "object",
+      "description": "Social connections between users"
+    },
+    "/discover_posts/{postId}": {
+      "schema": "DiscoveryPost",
+      "description": "Posts in the public discovery feed"
+    }
+  }
+}
